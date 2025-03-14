@@ -1,27 +1,17 @@
-# configure version of aws provider plugin
-# https://developer.hashicorp.com/terraform/language/terraform#terraform
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-# Configure the AWS Provider
-provider "aws" {
-  region = "us-west-2"
-}
-
 locals {
-  project_name = "lab_week_9"
+  project_name = "lab_week_10"
 }
 
 # get the most recent version of your AMI created with packer template
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/ami
 data "aws_ami" "ubuntu" {
-  # COMPLETE ME
+  most_recent = true
+  owners      = ["self"]
+
+  filter {
+    name   = "name"
+    values = ["packer-ansible-nginx"]
+  }
 }
 
 # Create a VPC
@@ -128,26 +118,27 @@ resource "aws_vpc_security_group_egress_rule" "web-egress" {
 }
 
 # create the ec2 instance
-# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance
-resource "aws_instance" "web" {
+module "web_server" {
+  source                 = "./modules/web-server"
+  project_name           = local.project_name
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t2.micro"
   key_name               = "aws-4640"
   vpc_security_group_ids = [aws_security_group.web.id]
   subnet_id              = aws_subnet.web.id
-
-  tags = {
-    Name = "Web"
-  }
 }
 
-# print public ip and dns to terminal
-# https://developer.hashicorp.com/terraform/language/values/outputs
-output "instance_ip_addr" {
-  description = "The public IP and dns of the web ec2 instance."
-  value = {
-    "public_ip" = aws_instance.web.public_ip
-    "dns_name"  = aws_instance.web.public_dns
-  }
+# Module outputs
+output "web_server_ip" {
+  description = "Public IP Address"
+  value       = module.web_server.instance_ip_addr
 }
 
+output "web_server_dns" {
+  description = "Public DNS name"
+  value       = module.web_server.instance_dns_name
+}
+
+output "web_server_id" {
+  description = "Instance ID"
+  value       = module.web_server.instance_id
+}
